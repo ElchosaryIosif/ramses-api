@@ -124,8 +124,30 @@ nameservers at the registrar, which needs the account that registered the domain
   typically cost a few dollars a month on top of the plan.
 - The database shares the existing server, so it adds no new instance.
 
+## WhatsApp message for every new order
+
+The API can send the shop's phone a WhatsApp message for each order, through the
+free [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/) service.
+Orders are saved before the message is sent, so if CallMeBot is ever down nothing
+is lost: the order is still in 🧾 Παραγγελίες.
+
+1. On the phone that should get the alerts, save CallMeBot's WhatsApp number as a
+   contact. The current number is on the CallMeBot page above; it changes now and then.
+2. Send that contact this WhatsApp message: `I allow callmebot to send me messages`
+3. It replies with an **API key** (a few digits).
+4. On the API service in Railway, add:
+
+   | Variable | Value |
+   | --- | --- |
+   | `WHATSAPP_PHONE` | the phone, with country code: `+306912345678` |
+   | `WHATSAPP_APIKEY` | the key from step 3 |
+
+5. Place a test order from the shop. The message arrives within a minute.
+
+Leave both empty to turn the alerts off.
+
 ## Not done yet
 
-- **No email when an order comes in.** Netlify Forms used to email you; now
-  orders only appear in the admin panel's 🧾 Παραγγελίες tab. Adding email needs
+- **No email when an order comes in.** Orders appear in the admin panel's
+  🧾 Παραγγελίες tab and, if set up, as a WhatsApp message. Adding email needs
   an SMTP or email-API account (for example AWS SES on the same AWS account).

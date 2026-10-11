@@ -11,6 +11,7 @@ import gr.ramsesbazaar.core.entity.ShopOrder;
 import gr.ramsesbazaar.core.repository.ProductRepository;
 import gr.ramsesbazaar.core.repository.ShopOrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class OrderService {
 
     private final ShopOrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final ApplicationEventPublisher events;
 
     /** Prices come from the catalogue, never from the request. */
     @Transactional
@@ -82,6 +84,7 @@ public class OrderService {
         order.setTotal(subtotal.add(shipping));
 
         ShopOrder saved = orderRepository.save(order);
+        events.publishEvent(OrderPlaced.from(saved));
         return new OrderReceipt(saved.getId(), saved.getSubtotal(), saved.getShipping(), saved.getTotal());
     }
 
