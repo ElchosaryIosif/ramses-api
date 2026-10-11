@@ -36,3 +36,7 @@ app:
       - https://ramsesbazaar.com
       - https://*.ramsesbazaar.com
     extra-origins: ${CORS_EXTRA_ORIGINS:}
+  mail:
+    brevo-api-key: ${BREVO_API_KEY:}
+    from: ${ORDER_EMAIL_FROM:}
+    to: ${ORDER_EMAIL_TO:}

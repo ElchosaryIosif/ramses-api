@@ -7,10 +7,22 @@ import java.util.Arrays;
 import java.util.List;
 
 @ConfigurationProperties("app")
-public record AppProperties(String sessionSecret, String adminPassword, Cors cors) {
+public record AppProperties(String sessionSecret, String adminPassword, Cors cors, Mail mail) {
 
     public AppProperties {
         if (cors == null) cors = new Cors(List.of(), null);
+        if (mail == null) mail = new Mail(null, null, null);
+    }
+
+    /**
+     * New-order emails through Brevo. Off without an API key and sender; without {@code to},
+     * they go to the shop email set in the admin panel.
+     */
+    public record Mail(String brevoApiKey, String from, String to) {
+
+        public boolean enabled() {
+            return brevoApiKey != null && !brevoApiKey.isBlank() && from != null && !from.isBlank();
+        }
     }
 
     public record Cors(List<String> allowedOrigins, String extraOrigins) {
