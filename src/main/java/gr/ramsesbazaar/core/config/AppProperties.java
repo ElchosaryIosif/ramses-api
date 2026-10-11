@@ -7,19 +7,10 @@ import java.util.Arrays;
 import java.util.List;
 
 @ConfigurationProperties("app")
-public record AppProperties(String sessionSecret, String adminPassword, Cors cors, Whatsapp whatsapp) {
+public record AppProperties(String sessionSecret, String adminPassword, Cors cors) {
 
     public AppProperties {
         if (cors == null) cors = new Cors(List.of(), null);
-        if (whatsapp == null) whatsapp = new Whatsapp(null, null);
-    }
-
-    /** CallMeBot recipient for new-order alerts. Both empty turns the alerts off. */
-    public record Whatsapp(String phone, String apikey) {
-
-        public boolean enabled() {
-            return phone != null && !phone.isBlank() && apikey != null && !apikey.isBlank();
-        }
     }
 
     public record Cors(List<String> allowedOrigins, String extraOrigins) {

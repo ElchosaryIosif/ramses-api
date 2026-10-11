@@ -1,26 +1,19 @@
 package gr.ramsesbazaar.core.controller;
 
 import com.jayway.jsonpath.JsonPath;
-import gr.ramsesbazaar.core.service.OrderPlaced;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Base64;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -43,28 +36,7 @@ class ApiTests {
     @Autowired
     private WebApplicationContext context;
 
-    @Autowired
-    private PlacedOrders placed;
-
     private MockMvc mvc;
-
-    /** Collects the after-commit order events, the same ones the WhatsApp notifier gets. */
-    @TestConfiguration
-    static class PlacedOrdersConfig {
-        @Bean
-        PlacedOrders placedOrders() {
-            return new PlacedOrders();
-        }
-    }
-
-    static class PlacedOrders {
-        final List<OrderPlaced> events = new CopyOnWriteArrayList<>();
-
-        @TransactionalEventListener
-        void on(OrderPlaced event) {
-            events.add(event);
-        }
-    }
 
     @BeforeEach
     void setUp() {
@@ -199,13 +171,6 @@ class ApiTests {
                         .content(order.replace("\"name\":\"Μαρία\"", "\"name\":\"\"")))
                 .andExpect(status().isUnprocessableContent());
 
-        // Only the accepted order is announced, with catalogue prices.
-        assertThat(placed.events).singleElement().satisfies(o -> {
-            assertThat(o.name()).isEqualTo("Μαρία");
-            assertThat(o.items()).singleElement().satisfies(l -> assertThat(l.qty()).isEqualTo(2));
-            assertThat(o.total()).isEqualByComparingTo("43.50");
-        });
-
         String list = mvc.perform(get("/api/orders").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
@@ -230,7 +195,6 @@ class ApiTests {
                 .andExpect(status().isCreated());
         mvc.perform(get("/api/orders").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(jsonPath("$", hasSize(0)));
-        assertThat(placed.events).isEmpty();
     }
 
     @Test

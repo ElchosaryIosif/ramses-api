@@ -36,6 +36,3 @@ app:
       - https://ramsesbazaar.com
       - https://*.ramsesbazaar.com
     extra-origins: ${CORS_EXTRA_ORIGINS:}
-  whatsapp:
-    phone: ${WHATSAPP_PHONE:}
-    apikey: ${WHATSAPP_APIKEY:}
