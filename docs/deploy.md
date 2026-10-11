@@ -124,8 +124,34 @@ nameservers at the registrar, which needs the account that registered the domain
   typically cost a few dollars a month on top of the plan.
 - The database shares the existing server, so it adds no new instance.
 
+## Email for every new order (Brevo)
+
+The API emails the shop for each order through [Brevo](https://www.brevo.com)
+(free plan: 300 emails a day). Orders are saved before the email is sent, so if
+Brevo is ever down nothing is lost: the order is still in 🧾 Παραγγελίες.
+Replying to the email answers the customer.
+
+1. Create a free Brevo account.
+2. **Senders, Domains & Dedicated IPs → Domains → Add a domain**: `ramsesbazaar.com`.
+   Brevo lists a few DNS records (a `brevo-code` TXT, DKIM records and a DMARC
+   TXT). Add each one in Netlify → DNS → ramsesbazaar.com → Add new record, then
+   click **Verify** in Brevo. This keeps the emails out of spam.
+3. **SMTP & API → API keys → Generate a new API key**, and copy it.
+4. On the API service in Railway, add:
+
+   | Variable | Value |
+   | --- | --- |
+   | `BREVO_API_KEY` | the key from step 3 |
+   | `ORDER_EMAIL_FROM` | `orders@ramsesbazaar.com` (any address on the verified domain; it needs no mailbox) |
+   | `ORDER_EMAIL_TO` | *(optional)* where the emails go. Empty means the shop email in ⚙️ Ρυθμίσεις. |
+
+5. Place a test order from the shop. The email arrives within a minute; if not,
+   the API service's logs in Railway say why.
+
+Leave `BREVO_API_KEY` empty to turn the emails off.
+
 ## Not done yet
 
-- **No email when an order comes in.** Netlify Forms used to email you; now
-  orders only appear in the admin panel's 🧾 Παραγγελίες tab. Adding email needs
-  an SMTP or email-API account (for example AWS SES on the same AWS account).
+- **No email to the customer.** Orders appear in the admin panel's
+  🧾 Παραγγελίες tab and, if Brevo is set up, by email to the shop. The customer
+  gets no email; the confirmation screen shows the bank details.
