@@ -28,6 +28,14 @@ public class SeoService {
             "jewelry", "Κοσμήματα", "clothes", "Ρούχα", "home", "Διακόσμηση",
             "incense", "Θυμιάματα", "collectibles", "Συλλεκτικά");
 
+    // Labels and icons exactly as the shop front shows them in Greek (i18n/translations.ts).
+    private static final Map<String, String> CATEGORY_LABEL_GR = Map.of(
+            "jewelry", "Κοσμήματα", "clothes", "Ρούχα", "home", "Home Decor",
+            "incense", "Incense", "collectibles", "Collectibles");
+    private static final Map<String, String> CATEGORY_ICON = Map.of(
+            "jewelry", "💎", "clothes", "👗", "home", "🏠", "incense", "🌿", "collectibles", "🗿");
+    private static final Map<String, String> TAG_LABEL_GR = Map.of("new", "Νέο", "best", "Bestseller", "sale", "Sale");
+
     private final ProductRepository productRepository;
     private final AppProperties props;
 
@@ -53,6 +61,11 @@ public class SeoService {
         h.append("<title>").append(html(title)).append("</title>\n");
         meta(h, "name", "description", description);
         h.append("<link rel=\"canonical\" href=\"").append(html(url)).append("\" />\n");
+        if (image != null) {
+            // The photo is the page's largest element: start downloading it with the HTML.
+            h.append("<link rel=\"preload\" as=\"image\" href=\"").append(html(image))
+                    .append("\" fetchpriority=\"high\" />\n");
+        }
         meta(h, "property", "og:type", "product");
         meta(h, "property", "og:site_name", SHOP);
         meta(h, "property", "og:locale", "el_GR");
@@ -71,7 +84,56 @@ public class SeoService {
         if (image != null) meta(h, "name", "twitter:image", image);
         h.append("<script type=\"application/ld+json\">").append(jsonLd(p, url, description, image))
                 .append("</script>\n");
+        // The same product as GET /api/products returns it, so the page can show it before the
+        // catalogue request finishes.
+        h.append("<script type=\"application/json\" id=\"product-data\">").append(productData(p))
+                .append("</script>\n");
         return h.toString();
+    }
+
+    /**
+     * The visible top of a product page, as the shop front's ProductPage component renders it in
+     * Greek (keep the two in step: same elements, classes and labels). nginx puts it in the page
+     * so the product shows before the app's JavaScript has loaded; the app then replaces it.
+     */
+    public String productBody(Product p, String apiOrigin) {
+        String category = CATEGORY_LABEL_GR.getOrDefault(p.getCategory(), p.getCategory());
+        String image = imageUrl(p, apiOrigin);
+        StringBuilder b = new StringBuilder();
+        b.append("<main id=\"main\"><section class=\"product-page\">");
+        b.append("<nav class=\"breadcrumb\" aria-label=\"Διαδρομή\"><a href=\"/\">Αρχική</a>")
+                .append("<span aria-hidden=\"true\">›</span><span>").append(html(category)).append("</span></nav>");
+        b.append("<div class=\"product-detail\"><div class=\"product-detail-media\">");
+        String tag = TAG_LABEL_GR.get(p.getTag());
+        if (tag != null) {
+            b.append("<span class=\"product-badge badge-").append(p.getTag()).append("\">").append(html(tag)).append("</span>");
+        }
+        if (image != null) {
+            b.append("<button type=\"button\" class=\"product-zoom\"><img src=\"").append(html(image))
+                    .append("\" alt=\"").append(html(p.getName()))
+                    .append("\" width=\"800\" height=\"800\" fetchpriority=\"high\" decoding=\"async\"></button>");
+        } else {
+            b.append("<div class=\"product-img-placeholder\">")
+                    .append(CATEGORY_ICON.getOrDefault(p.getCategory(), "")).append("</div>");
+        }
+        b.append("</div><div class=\"product-detail-info\">");
+        b.append("<p class=\"product-category\">").append(html(category)).append("</p>");
+        b.append("<h1 class=\"product-detail-name\">").append(html(p.getName())).append("</h1>");
+        b.append("<p class=\"product-detail-price\">€").append(p.getPrice().toPlainString()).append("</p>");
+        b.append(p.isInStock()
+                ? "<p class=\"product-stock\">✓ Διαθέσιμο</p>"
+                : "<p class=\"product-stock out\">Εκτός αποθέματος</p>");
+        if (p.getDescription() != null && !p.getDescription().isEmpty()) {
+            b.append("<p class=\"product-detail-desc\">").append(html(p.getDescription())).append("</p>");
+        }
+        b.append("<div class=\"product-detail-actions\">").append(p.isInStock()
+                ? "<button type=\"button\" class=\"btn-order\">+ Καλάθι</button>"
+                : "<button type=\"button\" class=\"btn-order\" disabled=\"\">Εξαντλήθηκε</button>").append("</div>");
+        b.append("<p class=\"product-ship-note\">🚚 Δωρεάν αποστολή σε όλη την Ελλάδα για παραγγελίες από €")
+                .append(FREE_SHIPPING_AT.toPlainString()).append("</p>");
+        b.append("<a class=\"product-back\" href=\"/#shop\">← Πίσω στη συλλογή</a>");
+        b.append("</div></div></section></main>");
+        return b.toString();
     }
 
     /** Tags for an address that matches no product: tell search engines not to index it. */
@@ -116,6 +178,19 @@ public class SeoService {
         if (img.startsWith("http://") || img.startsWith("https://")) return img;
         if (img.startsWith("/")) return apiOrigin + img;
         return null; // data: URLs are never stored, but never put one in a meta tag either
+    }
+
+    private static String productData(Product p) {
+        return "{\"id\":" + json(p.getId())
+                + ",\"name\":" + json(p.getName())
+                + ",\"cat\":" + json(p.getCategory())
+                + ",\"price\":" + p.getPrice().toPlainString()
+                + ",\"tag\":" + json(p.getTag())
+                + ",\"desc\":" + json(p.getDescription() == null ? "" : p.getDescription())
+                + ",\"stock\":" + p.isInStock()
+                + ",\"image\":" + (p.getImage() == null ? "null" : json(p.getImage()))
+                + ",\"createdAt\":" + p.getCreatedAt()
+                + ",\"slug\":" + json(Slugs.of(p)) + "}";
     }
 
     private String jsonLd(Product p, String url, String description, String image) {

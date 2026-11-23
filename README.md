@@ -25,7 +25,7 @@ set -a; . ./.env; set +a
 
 | | | |
 | --- | --- | --- |
-| `GET /api/products` | public | `{rev, products}` |
+| `GET /api/products` | public | `{rev, products}`; each product has a server-computed `slug` |
 | `PUT /api/products` | admin | `{baseRev, products}`; 409 with the current catalogue if `baseRev` is stale |
 | `GET /api/settings` / `PUT` | public / admin | contact and bank details |
 | `POST /api/login` | public | `{password, remember}` → `{token, exp, status}` |
@@ -34,6 +34,13 @@ set -a; . ./.env; set +a
 | `GET /api/images/{key}` | public | product photo, cached for a year |
 | `POST /api/orders` | public | priced from the catalogue, not the request |
 | `GET /api/orders`, `PATCH /api/orders/{id}` | admin | list orders, set status |
+| `GET /api/seo/sitemap.xml` | public | home page and every product page, with photos |
+| `GET /api/seo/product/{slug}` | public | a product page's `<head>` tags (title, description, canonical, Open Graph, Product JSON-LD, photo preload); `noindex` for an unknown slug |
+| `GET /api/seo/product-body/{slug}` | public | the product page's visible top part (photo, name, price), as the shop renders it in Greek; 404 for an unknown slug |
+
+The `seo` endpoints are read by the shop's nginx, which puts them into the pages it serves
+(see ramses-ui's README). Product pages live at `<SITE_URL>/p/<slug>`, where the slug is the
+name in Latin letters plus the id (`Slugs`); `SITE_URL` defaults to `https://ramsesbazaar.com`.
 
 ## Structure
 
@@ -41,6 +48,7 @@ set -a; . ./.env; set +a
 src/main/java/gr/ramsesbazaar/core/
   controller/   REST endpoints
   service/      catalogue, images, settings, auth, orders
+  seo/          sitemap, product page tags and body, product slugs
   security/     token filter, @RequireAdmin
   entity/ repository/ dto/ config/
 src/main/resources/db/migration/   Flyway migrations

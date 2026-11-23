@@ -52,6 +52,19 @@ public class SeoController {
                 .body(body);
     }
 
+    @Operation(summary = "Product page body",
+            description = "The visible top of the product page (photo, name, price), shown before the app loads. "
+                    + "404 for an unknown address.")
+    @GetMapping("/product-body/{slug}")
+    public ResponseEntity<String> productBody(@PathVariable String slug) {
+        return seoService.find(slug)
+                .map(p -> ResponseEntity.ok()
+                        .contentType(HTML)
+                        .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
+                        .body(seoService.productBody(p, apiOrigin())))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     /** This API's public origin, from the request (Railway's proxy headers give the scheme). */
     private static String apiOrigin() {
         return ServletUriComponentsBuilder.fromCurrentContextPath().replacePath(null).build().toUriString();
