@@ -1,6 +1,7 @@
 package gr.ramsesbazaar.core.dto;
 
 import gr.ramsesbazaar.core.entity.Product;
+import gr.ramsesbazaar.core.seo.Slugs;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -32,11 +33,15 @@ public record ProductDto(
         String image,
 
         @Schema(description = "Creation time in epoch milliseconds")
-        Long createdAt
+        Long createdAt,
+
+        @Schema(description = "Product page address after /p/, set by the server and ignored on save",
+                example = "asimenio-vrachioli-k3x9a1b2c3", accessMode = Schema.AccessMode.READ_ONLY)
+        String slug
 ) {
 
     public static ProductDto from(Product p) {
         return new ProductDto(p.getId(), p.getName(), p.getCategory(), p.getPrice(), p.getTag(),
-                p.getDescription(), p.isInStock(), p.getImage(), p.getCreatedAt());
+                p.getDescription(), p.isInStock(), p.getImage(), p.getCreatedAt(), Slugs.of(p));
     }
 }

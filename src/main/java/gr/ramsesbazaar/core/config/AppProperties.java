@@ -7,9 +7,14 @@ import java.util.Arrays;
 import java.util.List;
 
 @ConfigurationProperties("app")
-public record AppProperties(String sessionSecret, String adminPassword, Cors cors, Mail mail) {
+/**
+ * @param siteUrl the shop's public address, used for product page links in the sitemap and in
+ *                what Google is shown for each product
+ */
+public record AppProperties(String sessionSecret, String adminPassword, Cors cors, Mail mail, String siteUrl) {
 
     public AppProperties {
+        siteUrl = siteUrl == null || siteUrl.isBlank() ? "https://ramsesbazaar.com" : siteUrl.replaceAll("/+$", "");
         if (cors == null) cors = new Cors(List.of(), null);
         if (mail == null) mail = new Mail(null, null, null);
     }

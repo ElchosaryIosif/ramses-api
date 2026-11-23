@@ -27,6 +27,7 @@ server:
   forward-headers-strategy: framework
 
 app:
+  site-url: ${SITE_URL:https://ramsesbazaar.com}
   session-secret: ${SESSION_SECRET:}
   admin-password: ${ADMIN_PASSWORD:}
   cors:
