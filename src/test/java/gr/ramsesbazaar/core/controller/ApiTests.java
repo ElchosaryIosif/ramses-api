@@ -276,4 +276,72 @@ class ApiTests {
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "PUT"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void productPagesAreListedAndDescribedForSearchEngines() throws Exception {
+        String token = login("ramses1996");
+        String dataUrl = "data:image/png;base64," + Base64.getEncoder().encodeToString(PNG);
+        String greek = "{\"id\":\"k3x9a\",\"name\":\"Ασημένιο βραχιόλι <b>\",\"cat\":\"jewelry\",\"price\":24.5,"
+                + "\"tag\":\"\",\"desc\":\"\",\"stock\":false,\"image\":\"" + dataUrl + "\",\"createdAt\":1}";
+        saveCatalogue(token, 0, greek, product("abcd1", "60", true, null));
+
+        mvc.perform(get("/api/products"))
+                .andExpect(jsonPath("$.products[0].slug").value("asimenio-vrachioli-b-k3x9a"))
+                .andExpect(jsonPath("$.products[1].slug").value("item-abcd1-abcd1"));
+
+        String sitemap = mvc.perform(get("/api/seo/sitemap.xml"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, startsWith("application/xml")))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(sitemap)
+                .contains("<loc>https://ramsesbazaar.com/</loc>")
+                .contains("<loc>https://ramsesbazaar.com/p/asimenio-vrachioli-b-k3x9a</loc>")
+                .contains("<image:loc>http://localhost/api/images/")
+                .contains("<loc>https://ramsesbazaar.com/p/item-abcd1-abcd1</loc>");
+
+        String head = mvc.perform(get("/api/seo/product/asimenio-vrachioli-b-k3x9a"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, startsWith("text/html")))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(head)
+                .contains("<title>Ασημένιο βραχιόλι &lt;b&gt; | Ramses Bazaar</title>")
+                .contains("<link rel=\"canonical\" href=\"https://ramsesbazaar.com/p/asimenio-vrachioli-b-k3x9a\" />")
+                .contains("<meta property=\"og:image\" content=\"http://localhost/api/images/")
+                .contains("<link rel=\"preload\" as=\"image\" href=\"http://localhost/api/images/")
+                .contains("\"price\":\"24.50\"")
+                .contains("\"availability\":\"https://schema.org/OutOfStock\"")
+                .contains("\"value\":\"3.50\"")
+                .contains("Ασημένιο βραχιόλι \\u003cb\\u003e")
+                .contains("<script type=\"application/json\" id=\"product-data\">{\"id\":\"k3x9a\",")
+                .contains("\"price\":24.50,")
+                .contains("\"stock\":false,\"image\":\"/api/images/")
+                .contains("\"slug\":\"asimenio-vrachioli-b-k3x9a\"}</script>")
+                .doesNotContain("<b>");
+
+        // An old address (the product was renamed) still finds the product, and points at the new one.
+        assertThat(mvc.perform(get("/api/seo/product/old-name-k3x9a")).andReturn().getResponse().getContentAsString())
+                .contains("href=\"https://ramsesbazaar.com/p/asimenio-vrachioli-b-k3x9a\"");
+
+        // Free shipping from €50.
+        assertThat(mvc.perform(get("/api/seo/product/item-abcd1-abcd1")).andReturn().getResponse().getContentAsString())
+                .contains("\"value\":\"0\"")
+                .contains("InStock");
+
+        String body = mvc.perform(get("/api/seo/product-body/asimenio-vrachioli-b-k3x9a"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(body)
+                .startsWith("<main id=\"main\"><section class=\"product-page\">")
+                .contains("<h1 class=\"product-detail-name\">Ασημένιο βραχιόλι &lt;b&gt;</h1>")
+                .contains("<img src=\"http://localhost/api/images/")
+                .contains("<p class=\"product-detail-price\">€24.50</p>")
+                .contains("<p class=\"product-stock out\">Εκτός αποθέματος</p>")
+                .contains("disabled=\"\">Εξαντλήθηκε</button>")
+                .doesNotContain("product-detail-desc");
+        mvc.perform(get("/api/seo/product-body/nothing-here")).andExpect(status().isNotFound());
+
+        assertThat(mvc.perform(get("/api/seo/product/nothing-here")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString())
+                .contains("<meta name=\"robots\" content=\"noindex\" />");
+    }
 }
