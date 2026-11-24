@@ -318,6 +318,24 @@ class ApiTests {
                 .contains("\"slug\":\"asimenio-vrachioli-b-k3x9a\"}</script>")
                 .doesNotContain("<b>");
 
+        String feed = mvc.perform(get("/api/seo/merchant-feed.xml"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, startsWith("application/xml")))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(feed)
+                .contains("<rss version=\"2.0\" xmlns:g=\"http://base.google.com/ns/1.0\">")
+                .contains("<g:id>k3x9a</g:id>")
+                .contains("<g:title>Ασημένιο βραχιόλι &lt;b&gt;</g:title>")
+                .contains("<g:link>https://ramsesbazaar.com/p/asimenio-vrachioli-b-k3x9a</g:link>")
+                .contains("<g:image_link>http://localhost/api/images/")
+                .contains("<g:availability>out_of_stock</g:availability>")
+                .contains("<g:price>24.50 EUR</g:price>")
+                .contains("<g:identifier_exists>no</g:identifier_exists>")
+                .contains("<g:google_product_category>Apparel &amp; Accessories &gt; Jewelry</g:google_product_category>")
+                // The product without a photo is left out.
+                .doesNotContain("<g:id>abcd1</g:id>");
+        assertThat(sitemap).contains("<loc>https://ramsesbazaar.com/policies</loc>");
+
         // An old address (the product was renamed) still finds the product, and points at the new one.
         assertThat(mvc.perform(get("/api/seo/product/old-name-k3x9a")).andReturn().getResponse().getContentAsString())
                 .contains("href=\"https://ramsesbazaar.com/p/asimenio-vrachioli-b-k3x9a\"");
