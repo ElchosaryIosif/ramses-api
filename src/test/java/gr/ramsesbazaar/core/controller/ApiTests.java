@@ -283,7 +283,10 @@ class ApiTests {
         String dataUrl = "data:image/png;base64," + Base64.getEncoder().encodeToString(PNG);
         String greek = "{\"id\":\"k3x9a\",\"name\":\"Ασημένιο βραχιόλι <b>\",\"cat\":\"jewelry\",\"price\":24.5,"
                 + "\"tag\":\"\",\"desc\":\"\",\"stock\":false,\"image\":\"" + dataUrl + "\",\"createdAt\":1}";
-        saveCatalogue(token, 0, greek, product("abcd1", "60", true, null));
+        String emoji = "{\"id\":\"wal01\",\"name\":\"Indian Elephant 🐘 🇮🇳\",\"cat\":\"clothes\",\"price\":15,"
+                + "\"tag\":\"\",\"desc\":\"Boho wallet, handmade. #RamsesBazaar #Boho\",\"stock\":true,\"image\":\""
+                + dataUrl + "\",\"createdAt\":2}";
+        saveCatalogue(token, 0, greek, product("abcd1", "60", true, null), emoji);
 
         mvc.perform(get("/api/products"))
                 .andExpect(jsonPath("$.products[0].slug").value("asimenio-vrachioli-b-k3x9a"))
@@ -331,6 +334,13 @@ class ApiTests {
                 .contains("<g:availability>out_of_stock</g:availability>")
                 .contains("<g:price>24.50 EUR</g:price>")
                 .contains("<g:identifier_exists>no</g:identifier_exists>")
+                .doesNotContain("<g:brand>")
+                // No description written: a plain sentence, without the price.
+                .contains("<g:description>Ασημένιο βραχιόλι &lt;b&gt; – Κοσμήματα από το Ramses Bazaar, gift shop στην Καλαμάτα από το 1996.</g:description>")
+                // Emoji out of titles, hashtags out of descriptions, broad category for "clothes".
+                .contains("<g:title>Indian Elephant</g:title>")
+                .contains("<g:description>Boho wallet, handmade.</g:description>")
+                .contains("<g:google_product_category>Apparel &amp; Accessories</g:google_product_category>")
                 .contains("<g:google_product_category>Apparel &amp; Accessories &gt; Jewelry</g:google_product_category>")
                 // The product without a photo is left out.
                 .doesNotContain("<g:id>abcd1</g:id>");
