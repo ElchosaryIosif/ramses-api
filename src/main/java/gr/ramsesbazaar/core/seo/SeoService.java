@@ -36,6 +36,14 @@ public class SeoService {
             "jewelry", "💎", "clothes", "👗", "home", "🏠", "incense", "🌿", "collectibles", "🗿");
     private static final Map<String, String> TAG_LABEL_GR = Map.of("new", "Νέο", "best", "Bestseller", "sale", "Sale");
 
+    // Google's product taxonomy, by shop category (https://support.google.com/merchants/answer/6324436).
+    private static final Map<String, String> GOOGLE_CATEGORY = Map.of(
+            "jewelry", "Apparel & Accessories > Jewelry",
+            "clothes", "Apparel & Accessories > Clothing",
+            "home", "Home & Garden > Decor",
+            "incense", "Home & Garden > Decor > Home Fragrances > Incense",
+            "collectibles", "Arts & Entertainment > Hobbies & Creative Arts > Collectibles");
+
     private final ProductRepository productRepository;
     private final AppProperties props;
 
@@ -148,6 +156,7 @@ public class SeoService {
         x.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" ")
                 .append("xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\">\n");
         x.append("  <url><loc>").append(xml(props.siteUrl() + "/")).append("</loc></url>\n");
+        x.append("  <url><loc>").append(xml(props.siteUrl() + "/policies")).append("</loc></url>\n");
         for (Product p : productRepository.findAllByOrderByPositionAsc()) {
             x.append("  <url><loc>").append(xml(productUrl(p))).append("</loc>");
             String image = imageUrl(p, apiOrigin);
@@ -158,6 +167,49 @@ public class SeoService {
         }
         x.append("</urlset>\n");
         return x.toString();
+    }
+
+    /**
+     * Google Merchant Center product feed (RSS 2.0 with the g: namespace), so products appear in
+     * Google Shopping and image results. Shipping and returns are set once in the Merchant Center
+     * account. Products without a photo are left out: Google rejects items without an image.
+     * Handmade and imported pieces have no barcode, hence identifier_exists=no.
+     */
+    @Transactional(readOnly = true)
+    public String merchantFeed(String apiOrigin) {
+        StringBuilder x = new StringBuilder();
+        x.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        x.append("<rss version=\"2.0\" xmlns:g=\"http://base.google.com/ns/1.0\">\n<channel>\n");
+        x.append("<title>").append(xml(SHOP)).append("</title>\n");
+        x.append("<link>").append(xml(props.siteUrl() + "/")).append("</link>\n");
+        x.append("<description>").append(xml("Boho, ethnic & hippie gift shop in Kalamata since 1996"))
+                .append("</description>\n");
+        for (Product p : productRepository.findAllByOrderByPositionAsc()) {
+            String image = imageUrl(p, apiOrigin);
+            if (image == null) continue;
+            x.append("<item>\n");
+            feedField(x, "id", p.getId());
+            feedField(x, "title", p.getName());
+            feedField(x, "description", p.getDescription() == null || p.getDescription().isBlank()
+                    ? description(p) : p.getDescription().trim());
+            feedField(x, "link", productUrl(p));
+            feedField(x, "image_link", image);
+            feedField(x, "availability", p.isInStock() ? "in_stock" : "out_of_stock");
+            feedField(x, "price", p.getPrice().toPlainString() + " EUR");
+            feedField(x, "condition", "new");
+            feedField(x, "brand", SHOP);
+            feedField(x, "identifier_exists", "no");
+            String googleCategory = GOOGLE_CATEGORY.get(p.getCategory());
+            if (googleCategory != null) feedField(x, "google_product_category", googleCategory);
+            feedField(x, "product_type", CATEGORY_GR.getOrDefault(p.getCategory(), p.getCategory()));
+            x.append("</item>\n");
+        }
+        x.append("</channel>\n</rss>\n");
+        return x.toString();
+    }
+
+    private static void feedField(StringBuilder x, String name, String value) {
+        x.append("  <g:").append(name).append('>').append(xml(value)).append("</g:").append(name).append(">\n");
     }
 
     private String description(Product p) {

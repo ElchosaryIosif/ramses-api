@@ -38,6 +38,16 @@ public class SeoController {
                 .body(seoService.sitemap(apiOrigin()));
     }
 
+    @Operation(summary = "Google Merchant Center product feed",
+            description = "Every product with a photo, as a Merchant Center RSS feed (price, stock, link, image).")
+    @GetMapping("/merchant-feed.xml")
+    public ResponseEntity<String> merchantFeed() {
+        return ResponseEntity.ok()
+                .contentType(XML)
+                .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+                .body(seoService.merchantFeed(apiOrigin()));
+    }
+
     @Operation(summary = "Product page head tags",
             description = "Title, description, canonical address, link-preview tags and Product structured data. "
                     + "An unknown address gets a noindex tag.")
