@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * What search engines and link previews see. The shop front is a single-page app, so its nginx
@@ -39,7 +40,8 @@ public class SeoService {
     // Google's product taxonomy, by shop category (https://support.google.com/merchants/answer/6324436).
     private static final Map<String, String> GOOGLE_CATEGORY = Map.of(
             "jewelry", "Apparel & Accessories > Jewelry",
-            "clothes", "Apparel & Accessories > Clothing",
+            // The shop's "clothes" also holds bags, wallets and scarves: let Google pick the exact type.
+            "clothes", "Apparel & Accessories",
             "home", "Home & Garden > Decor",
             "incense", "Home & Garden > Decor > Home Fragrances > Incense",
             "collectibles", "Arts & Entertainment > Hobbies & Creative Arts > Collectibles");
@@ -173,7 +175,8 @@ public class SeoService {
      * Google Merchant Center product feed (RSS 2.0 with the g: namespace), so products appear in
      * Google Shopping and image results. Shipping and returns are set once in the Merchant Center
      * account. Products without a photo are left out: Google rejects items without an image.
-     * Handmade and imported pieces have no barcode, hence identifier_exists=no.
+     * Handmade and imported pieces have no barcode, hence identifier_exists=no. There is no brand:
+     * many products are other makers' (e.g. HEM incense), and the shop's name isn't their brand.
      */
     @Transactional(readOnly = true)
     public String merchantFeed(String apiOrigin) {
@@ -189,15 +192,13 @@ public class SeoService {
             if (image == null) continue;
             x.append("<item>\n");
             feedField(x, "id", p.getId());
-            feedField(x, "title", p.getName());
-            feedField(x, "description", p.getDescription() == null || p.getDescription().isBlank()
-                    ? description(p) : p.getDescription().trim());
+            feedField(x, "title", feedTitle(p.getName()));
+            feedField(x, "description", feedDescription(p));
             feedField(x, "link", productUrl(p));
             feedField(x, "image_link", image);
             feedField(x, "availability", p.isInStock() ? "in_stock" : "out_of_stock");
             feedField(x, "price", p.getPrice().toPlainString() + " EUR");
             feedField(x, "condition", "new");
-            feedField(x, "brand", SHOP);
             feedField(x, "identifier_exists", "no");
             String googleCategory = GOOGLE_CATEGORY.get(p.getCategory());
             if (googleCategory != null) feedField(x, "google_product_category", googleCategory);
@@ -206,6 +207,29 @@ public class SeoService {
         }
         x.append("</channel>\n</rss>\n");
         return x.toString();
+    }
+
+    // Emoji and pictographs (and the joiners/selectors that build them). Google flags symbols in
+    // titles as spam-like.
+    private static final Pattern EMOJI = Pattern.compile("[\\p{So}\\p{Sk}\\x{FE0F}\\x{200D}\\x{20E3}]+");
+    private static final Pattern HASHTAG = Pattern.compile("(?U)(^|\\s)#\\w+");
+
+    /** The product name without emoji, which Merchant Center treats as promotional symbols. */
+    static String feedTitle(String name) {
+        String clean = EMOJI.matcher(name).replaceAll(" ").replaceAll("\\s+", " ").trim();
+        return clean.isEmpty() ? name.trim() : clean;
+    }
+
+    /**
+     * The description without hashtags (promotional text to Merchant Center). With none written,
+     * a plain sentence naming the product and category; Google doesn't want prices in it.
+     */
+    private static String feedDescription(Product p) {
+        String d = p.getDescription() == null ? "" : HASHTAG.matcher(p.getDescription()).replaceAll("$1");
+        d = d.replaceAll("[ \\t]+", " ").replaceAll(" *\\n *", "\n").trim();
+        if (!d.isEmpty()) return d;
+        return feedTitle(p.getName()) + " – " + CATEGORY_GR.getOrDefault(p.getCategory(), "δώρα")
+                + " από το Ramses Bazaar, gift shop στην Καλαμάτα από το 1996.";
     }
 
     private static void feedField(StringBuilder x, String name, String value) {
